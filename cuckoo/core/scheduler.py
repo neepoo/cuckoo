@@ -386,13 +386,14 @@ class AnalysisManager(threading.Thread):
         # results, such as loaded drivers and opened sockets in volatility, or
         # DNS requests to hostnames related to Microsoft Windows, etc may be
         # omitted or at the very least given less priority when creating a
-        # report for an analysis that ran on this VM later on.
+        # report for a   n analysis that ran on this VM later on.
         if self.task.category == "baseline":
             time.sleep(options["timeout"])
         else:
             # Start the analysis.
             self.db.guest_set_status(self.task.id, "starting")
             monitor = self.task.options.get("monitor", "latest")
+            # 把样本，analyzer文件夹送入虚拟机，执行分析
             self.guest_manager.start_analysis(options, monitor)
 
             # In case the Agent didn't respond and we force-quit the analysis
@@ -400,8 +401,9 @@ class AnalysisManager(threading.Thread):
             # will be "stop" (or anything but "running", really).
             if self.db.guest_get_status(self.task.id) == "starting":
                 self.db.guest_set_status(self.task.id, "running")
+                # 等待达到超时时间
                 self.guest_manager.wait_for_completion()
-
+            # 设置状态为stopping
             self.db.guest_set_status(self.task.id, "stopping")
 
     def launch_analysis(self):
@@ -478,6 +480,7 @@ class AnalysisManager(threading.Thread):
                 )
 
         try:
+            # 创建虚拟机，送入虚拟机，等待分析完成
             unlocked = False
             self.interface = None
 

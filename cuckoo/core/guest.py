@@ -380,13 +380,14 @@ class GuestManager(object):
 
     def upload_analyzer(self, monitor):
         """Upload the analyzer to the Virtual Machine."""
+        # zip_data is archive sended to vm
         zip_data = analyzer_zipfile(self.platform, monitor)
 
         log.debug(
             "Uploading analyzer to guest (id=%s, ip=%s, monitor=%s, size=%d)",
             self.vmid, self.ipaddr, monitor, len(zip_data)
         )
-
+        # get path where analysis start
         self.determine_analyzer_path()
         data = {
             "dirpath": self.analyzer_path,
@@ -423,10 +424,13 @@ class GuestManager(object):
         self.timeout = options["timeout"] + config("cuckoo:timeouts:critical")
 
         # Wait for the agent to come alive.
+        # 利用socket连接guest的8000端口，等待连接创建
+        # 超市 则shutdown
         self.wait_available()
 
         # Could be beautified a bit, but basically we have to perform the
         # same check here as we did in wait_available().
+        # in scheduler. setting this value is starting
         if db.guest_get_status(self.task_id) != "starting":
             return
 
@@ -474,18 +478,22 @@ class GuestManager(object):
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
         if "pinning" in features:
+            # 告诉guest host的
             self.get("/pinning")
 
         # Obtain the environment variables.
         self.query_environ()
 
         # Upload the analyzer.
+        # after this upload analyzer's dir to vm
         self.upload_analyzer(monitor)
 
         # Pass along the analysis.conf file.
+        # send analysis.conf to vm's analyzer's dir name is analyzer.conf
         self.add_config(options)
 
         # Allow Auxiliary modules to prepare the Guest.
+        # TODO FIGURE OUT
         self.aux.callback("prepare_guest")
 
         # If the target is a file, upload it to the guest.
@@ -522,7 +530,7 @@ class GuestManager(object):
             return
 
         end = time.time() + self.timeout
-
+        # starting之后的状态就是running，在schduler中设置
         while db.guest_get_status(self.task_id) == "running":
             log.debug("%s: analysis still processing", self.vmid)
 
