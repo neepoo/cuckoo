@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (C) 2012-2013 Claudio Guarnieri.
 # Copyright (C) 2014-2018 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
@@ -708,10 +709,11 @@ class Database(object):
         @param task_id: task identifier
         @param name: vm name
         @param label: vm label
-        @param manager: vm manager
+        @param manager: vm manager，kvm or virtualbox
         @return: guest row id
         """
         session = self.Session()
+        # 创建虚拟机
         guest = Guest(name, label, manager)
         try:
             guest.status = "init"

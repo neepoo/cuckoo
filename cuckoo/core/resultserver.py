@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (C) 2012-2013 Claudio Guarnieri.
 # Copyright (C) 2014-2018 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
@@ -166,7 +167,7 @@ class ResultHandler(SocketServer.BaseRequestHandler):
 
     def wait_sock_or_end(self):
         while True:
-            if self.end_request.isSet():
+            if self.end_request.isSet():  # True可以允许
                 return False
 
             if self.poll:
@@ -324,7 +325,7 @@ class FileUpload(ProtocolHandler):
 
     def init(self):
         self.upload_max_size = config("cuckoo:resultserver:upload_max_size")
-        self.storagepath = self.handler.storagepath
+        self.storagepath = self.handler.storagepath  # $CWD/storage/analysis/id
         self.fd = None
 
         self.filelog = os.path.join(self.handler.storagepath, "files.json")
@@ -332,7 +333,7 @@ class FileUpload(ProtocolHandler):
     def __iter__(self):
         # Read until newline for file path, e.g.,
         # shots/0001.jpg or files/9498687557/libcurl-4.dll.bin
-
+        # guest上传到host在这里实现，但还是看得不太明白
         dump_path = self.handler.read_newline(strip=True).replace("\\", "/")
 
         if self.version >= 2:
@@ -341,10 +342,11 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids = None, []
 
-        log.debug("File upload request for %s", dump_path)
-
+        log.debug("File upload request for %s", dump_path)  # 会在日志中显示上传文件
+        # dumppath like shots/0007.jpg
         dir_part, filename = os.path.split(dump_path)
-
+        # dir_path = shots
+        # filename = 0007.jpg
         if "./" in dump_path or not dir_part or dump_path.startswith("/"):
             raise CuckooOperationalError(
                 "FileUpload failure, banned path: %s" % dump_path
@@ -362,6 +364,7 @@ class FileUpload(ProtocolHandler):
             log.error("Unable to create folder %s", dir_part)
             return
 
+        # 上传文件的绝对路径
         file_path = os.path.join(self.storagepath, dump_path)
 
         if not file_path.startswith(self.storagepath):
@@ -376,6 +379,7 @@ class FileUpload(ProtocolHandler):
             )
             return
 
+        # 打开文件准备写入
         self.fd = open(file_path, "wb")
         chunk = self.handler.read_any()
         while chunk:
