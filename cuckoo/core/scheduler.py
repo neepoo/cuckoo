@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (C) 2012-2013 Claudio Guarnieri.
 # Copyright (C) 2014-2018 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
@@ -65,7 +66,7 @@ class AnalysisManager(threading.Thread):
 
     def init(self):
         """Initialize the analysis."""
-        self.storage = cwd(analysis=self.task.id)
+        self.storage = cwd(analysis=self.task.id)  # analysis storage folder
 
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
@@ -204,23 +205,23 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = File(self.task.target).get_name()
 
         options["id"] = self.task.id
-        options["ip"] = self.machine.resultserver_ip
-        options["port"] = self.machine.resultserver_port
-        options["category"] = self.task.category
-        options["target"] = self.task.target
-        options["package"] = self.task.package
-        options["options"] = emit_options(self.task.options)
-        options["enforce_timeout"] = self.task.enforce_timeout
-        options["clock"] = self.task.clock
+        options["ip"] = self.machine.resultserver_ip  # 宿主机的IP地址
+        options["port"] = self.machine.resultserver_port  # 宿主机接收结果的端口
+        options["category"] = self.task.category  # file / archive
+        options["target"] = self.task.target  # 文件在宿主机的绝对地址
+        options["package"] = self.task.package  # exe/generic告诉guest用什么打开样本吧
+        options["options"] = emit_options(self.task.options)  # procmemdump=yes,remotecontrol=yes,route=
+        options["enforce_timeout"] = self.task.enforce_timeout  # bool default false
+        options["clock"] = self.task.clock  # 2019-01-15 13:56:30.942771
         options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
 
         if not self.task.timeout:
             options["timeout"] = self.cfg.timeouts.default
         else:
-            options["timeout"] = self.task.timeout
+            options["timeout"] = self.task.timeout  # 虚拟机的运行时间 默认120S
 
         # copy in other analyzer specific options, TEMPORARY (most likely)
-        vm_options = getattr(machinery.options, self.machine.name)
+        vm_options = getattr(machinery.options, self.machine.name)  # x.y
         for k in vm_options:
             if k.startswith("analyzer_"):
                 options[k] = vm_options[k]
@@ -375,7 +376,7 @@ class AnalysisManager(threading.Thread):
         assistance for an analysis through the services auxiliary module. This
         method just waits until the analysis is finished rather than actively
         trying to engage with the Cuckoo Agent."""
-        self.db.guest_set_status(self.task.id, "running")
+        self.db.guest_set_status(self.task.id, "running")  # 设置状态为running
         while self.db.guest_get_status(self.task.id) == "running":
             time.sleep(1)
 
@@ -393,6 +394,7 @@ class AnalysisManager(threading.Thread):
             # Start the analysis.
             self.db.guest_set_status(self.task.id, "starting")
             monitor = self.task.options.get("monitor", "latest")
+            # 在guest中运行 analyzer.py
             self.guest_manager.start_analysis(options, monitor)
 
             # In case the Agent didn't respond and we force-quit the analysis
@@ -451,16 +453,18 @@ class AnalysisManager(threading.Thread):
             self.errors.put(e)
 
         # Initialize the guest manager.
+        # self.machine.ip,虚拟机的ip地址
+        # 创建虚拟机管理的实例，用于启动analysis.py以及传输数据
         self.guest_manager = GuestManager(
             self.machine.name, self.machine.ip,
             self.machine.platform, self.task.id, self
         )
 
         self.aux = RunAuxiliary(self.task, self.machine, self.guest_manager)
-        self.aux.start()
+        self.aux.start()  # 例如运行tcpdump， mitmproxy等等
 
         # Generate the analysis configuration file.
-        options = self.build_options()
+        options = self.build_options()  # 返回还有配置信息的字典
 
         # Check if the current task has remotecontrol
         # enabled before starting the machine.
@@ -478,6 +482,7 @@ class AnalysisManager(threading.Thread):
                 )
 
         try:
+            # 从快照恢复虚拟机
             unlocked = False
             self.interface = None
 
@@ -493,6 +498,8 @@ class AnalysisManager(threading.Thread):
             )
 
             # Start the machine.
+            # 重快照恢复，相关代码在cuckoo/common/abstracts.py中
+            # 关键代码
             machinery.start(self.machine.label, self.task)
 
             logger(
@@ -507,6 +514,7 @@ class AnalysisManager(threading.Thread):
                     params = machinery.get_remote_control_params(
                         self.machine.label
                     )
+                    # 刷新数据库中 machine表中rcpara字段
                     self.db.set_machine_rcparams(self.machine.label, params)
                 except NotImplementedError:
                     raise CuckooMachineError(
@@ -515,6 +523,7 @@ class AnalysisManager(threading.Thread):
                     )
 
             # Enable network routing.
+            # 暂时看不懂，忽略
             self.route_network()
 
             # By the time start returns it will have fully started the Virtual
@@ -526,8 +535,11 @@ class AnalysisManager(threading.Thread):
             # machine has the "noagent" option specified (please refer to the
             # wait_finish() function for more details on this function).
             if "noagent" not in self.machine.options:
+                # 默认运行这里
                 self.guest_manage(options)
             else:
+                # 这里除非是noagent才走这里，默认情况是不可能走这里的
+                # 等待虚拟机状态从stop/pause --> 变成start
                 self.wait_finish()
 
             succeeded = True

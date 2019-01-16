@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (C) 2012-2013 Claudio Guarnieri.
 # Copyright (C) 2014-2018 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
@@ -447,7 +448,7 @@ class LibVirtMachinery(Machinery):
     def start(self, label, task):
         """Starts a virtual machine.
         @param label: virtual machine name.
-        @param task: task object.
+        @param task: task object.is dict
         @raise CuckooMachineError: if unable to start virtual machine.
         """
         log.debug("Starting machine %s", label)
@@ -458,7 +459,7 @@ class LibVirtMachinery(Machinery):
             raise CuckooMachineError(msg)
 
         conn = self._connect()
-
+        # 虚拟机对象
         vm_info = self.db.view_machine_by_label(label)
 
         snapshot_list = self.vms[label].snapshotListNames(flags=0)

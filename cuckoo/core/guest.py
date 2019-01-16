@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (C) 2012-2013 Claudio Guarnieri.
 # Copyright (C) 2014-2017 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
@@ -268,12 +269,12 @@ class GuestManager(object):
     Cuckoo Agent which features a more abstract but more feature-rich API."""
 
     def __init__(self, vmid, ipaddr, platform, task_id, analysis_manager):
-        self.vmid = vmid
-        self.ipaddr = ipaddr
+        self.vmid = vmid  # 虚拟机的名字
+        self.ipaddr = ipaddr  # 虚拟机的ip地址
         self.port = CUCKOO_GUEST_PORT
-        self.platform = platform
-        self.task_id = task_id
-        self.analysis_manager = analysis_manager
+        self.platform = platform  # 虚拟机所运行平台
+        self.task_id = task_id  # 所获取的任务id
+        self.analysis_manager = analysis_manager  # AnalyzerManager实例
         self.timeout = None
 
         # Just in case we have an old agent inside the Virtual Machine. This
@@ -338,7 +339,7 @@ class GuestManager(object):
             try:
                 socket.create_connection((self.ipaddr, self.port), 1).close()
                 break
-            except socket.timeout:
+            except socket.timeou:
                 log.debug("%s: not ready yet", self.vmid)
             except socket.error:
                 log.debug("%s: not ready yet", self.vmid)
