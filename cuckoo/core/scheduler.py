@@ -58,7 +58,7 @@ class AnalysisManager(threading.Thread):
         self.storage_binary = ""
         self.machine = None
         self.db = Database()
-        self.task = self.db.view_task(task_id)
+        self.task = self.db.view_task(task_id)  # 根据task的ID获取详细的任务信息
         self.guest_manager = None
         self.route = None
         self.interface = None
@@ -392,16 +392,23 @@ class AnalysisManager(threading.Thread):
             time.sleep(options["timeout"])
         else:
             # Start the analysis.
+            # 设置值为starting
             self.db.guest_set_status(self.task.id, "starting")
+
+            # monitor类型是str，默认值是latest
             monitor = self.task.options.get("monitor", "latest")
+
             # 把样本，analyzer文件夹送入虚拟机，执行分析
             # 在guest中运行 analyzer.py
+            # guest.py中AnalysisManager实例
+            # 实际上最后会运行虚拟机中的analyzer.py,该方法没有返回值
             self.guest_manager.start_analysis(options, monitor)
 
             # In case the Agent didn't respond and we force-quit the analysis
             # at some point while it was still starting the analysis the state
             # will be "stop" (or anything but "running", really).
             if self.db.guest_get_status(self.task.id) == "starting":
+                # 运行了analyzer.py之后就是running状态了
                 self.db.guest_set_status(self.task.id, "running")
                 # 等待达到超时时间
                 self.guest_manager.wait_for_completion()
@@ -457,6 +464,7 @@ class AnalysisManager(threading.Thread):
         # Initialize the guest manager.
         # self.machine.ip,虚拟机的ip地址
         # 创建虚拟机管理的实例，用于启动analysis.py以及传输数据
+        # guest.py中的GuestManager
         self.guest_manager = GuestManager(
             self.machine.name, self.machine.ip,
             self.machine.platform, self.task.id, self
@@ -490,6 +498,7 @@ class AnalysisManager(threading.Thread):
             self.interface = None
 
             # Mark the selected analysis machine in the database as started.
+            # 返回当前任务所运行guest的唯一标识 ID,但此时还没有创建
             guest_log = self.db.guest_start(self.task.id,
                                             self.machine.name,
                                             self.machine.label,
@@ -502,8 +511,11 @@ class AnalysisManager(threading.Thread):
 
             # Start the machine.
             # 重快照恢复，相关代码在cuckoo/common/abstracts.py中
-            # 关键代码
+            # 关键代码，self.machine.label虚拟机的名字例如win7
+            # task: task object. is dict
             machinery.start(self.machine.label, self.task)
+            # start会从快照回复虚拟机，一直等待虚拟机的状态为running，
+            # 因此运行完这句就可以认为虚拟机已经开机了
 
             logger(
                 "Started VM",
@@ -512,6 +524,7 @@ class AnalysisManager(threading.Thread):
             )
 
             # retrieve the port used for remote control
+            # TODO 需要在相应的虚拟机配置的xml中做配置,暂时忽略
             if control_enabled:
                 try:
                     params = machinery.get_remote_control_params(

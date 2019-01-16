@@ -39,7 +39,7 @@ def analyzer_zipfile(platform, monitor):
 
     # Select the proper analyzer's folder according to the operating
     # system associated with the current machine.
-    root = cwd("analyzer", platform)
+    root = cwd("analyzer", platform)  # 默认是analyzer/windows
     root_len = len(os.path.abspath(root))
 
     if not os.path.exists(root):
@@ -53,8 +53,8 @@ def analyzer_zipfile(platform, monitor):
     for root, dirs, files in os.walk(root):
         archive_root = os.path.abspath(root)[root_len:]
         for name in files:
-            path = os.path.join(root, name)
-            archive_name = os.path.join(archive_root, name)
+            path = os.path.join(root, name)  # 文件名
+            archive_name = os.path.join(archive_root, name)  # zip中的文件名
             zip_file.write(path, archive_name)
 
     # Include the chosen monitoring component and any additional files.
@@ -145,6 +145,7 @@ class OldGuestManager(object):
         """Upload analyzer to guest.
         @return: operation status.
         """
+        # 返回需要放入虚拟机的zip文件，此时并没有放入样本
         zip_data = analyzer_zipfile(self.platform, monitor)
 
         log.debug(
@@ -170,8 +171,10 @@ class OldGuestManager(object):
         # Unicode files are being taken care of.
 
         self.timeout = options["timeout"] + config("cuckoo:timeouts:critical")
-
+        # self.ip guest的ip地址
         url = "http://{0}:{1}".format(self.ip, CUCKOO_GUEST_PORT)
+        # TODO 看一下具体rpc的实现
+        # 宿主机起一个rpc客户端，连接虚拟机agent默认起的8000端口
         self.server = TimeoutServer(url, allow_none=True,
                                     timeout=self.timeout)
 
@@ -283,7 +286,7 @@ class GuestManager(object):
         self.is_old = False
 
         # We maintain the path of the Cuckoo Analyzer on the host.
-        self.analyzer_path = None
+        self.analyzer_path = None  # 虚拟机中分析的目录
         self.environ = {}
 
         self.options = {}
@@ -366,6 +369,7 @@ class GuestManager(object):
             r = self.post("/mkdir", data={"dirpath": dirpath})
             self.analyzer_path = dirpath
         else:
+            # c盘下面创建临时目录
             r = self.post("/mkdtemp", data={"dirpath": systemdrive})
             self.analyzer_path = r.json()["dirpath"]
 
@@ -380,8 +384,10 @@ class GuestManager(object):
         return "/tmp"
 
     def upload_analyzer(self, monitor):
+        # 会确定在虚拟机中的分析目录
         """Upload the analyzer to the Virtual Machine."""
         # zip_data is archive sended to vm
+        # TODO analyzer——zipfile how and aim is
         zip_data = analyzer_zipfile(self.platform, monitor)
 
         log.debug(
@@ -389,6 +395,7 @@ class GuestManager(object):
             self.vmid, self.ipaddr, monitor, len(zip_data)
         )
         # get path where analysis start
+        # 设置self.analyzer_path，就是配置文件和分析文件夹所在的目录
         self.determine_analyzer_path()
         data = {
             "dirpath": self.analyzer_path,
@@ -416,22 +423,26 @@ class GuestManager(object):
         """Start the analysis by uploading all required files.
 
         @param options: the task options
-        @param monitor: identifier of the monitor to be used.
+        @param monitor: identifier of the monitor to be used.sh
         """
+        # 虚拟机的名字和ip地址
         log.info("Starting analysis on guest (id=%s, ip=%s)",
                  self.vmid, self.ipaddr)
 
-        self.options = options
-        self.timeout = options["timeout"] + config("cuckoo:timeouts:critical")
+        self.options = options  # 一个字典，包含重要信息
+        self.timeout = options["timeout"] + config("cuckoo:timeouts:critical")  # 获取超时时间
 
         # Wait for the agent to come alive.
         # 利用socket连接guest的8000端口，等待连接创建
-        # 超市 则shutdown
+        # 如果超时则shutdown
         self.wait_available()
+        # 执行完则说明host-->guest的网络通畅
 
         # Could be beautified a bit, but basically we have to perform the
         # same check here as we did in wait_available().
+
         # in scheduler. setting this value is starting
+        # starting represent vm state is open
         if db.guest_get_status(self.task_id) != "starting":
             return
 
@@ -461,8 +472,11 @@ class GuestManager(object):
 
         try:
             status = r.json()
+            # 0.8
             version = status.get("version")
+            # 0.8 version festure = ["execpy", "pinning", "logs", "largefile", "unicodepath"]
             features = status.get("features", [])
+
         except:
             log.critical(
                 "We were unable to detect either the Old or New Agent in the "
@@ -470,27 +484,31 @@ class GuestManager(object):
                 "go through the documentation once more and otherwise inform "
                 "the Cuckoo Developers of your issue."
             )
+            # 获取状态失败，则设置为failed
             db.guest_set_status(self.task_id, "failed")
             return
 
+        # 说一下虚拟机的名字和IP地址
         log.info("Guest is running Cuckoo Agent %s (id=%s, ip=%s)",
                  version, self.vmid, self.ipaddr)
 
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
         if "pinning" in features:
-            # 告诉guest host的
+            # 告诉guest host的ip地址,调用多次则会报错哟
             self.get("/pinning")
 
         # Obtain the environment variables.
         self.query_environ()
 
         # Upload the analyzer.
-        # after this upload analyzer's dir to vm
+        # 确定在虚拟机中的分析目录
+        # after this upload analyzer's dir to vm's self.analyzer_path dir
         self.upload_analyzer(monitor)
 
         # Pass along the analysis.conf file.
         # send analysis.conf to vm's analyzer's dir name is analyzer.conf
+        # 添加配置文件
         self.add_config(options)
 
         # Allow Auxiliary modules to prepare the Guest.
@@ -498,7 +516,9 @@ class GuestManager(object):
         self.aux.callback("prepare_guest")
 
         # If the target is a file, upload it to the guest.
+        # 把样本发到虚拟机
         if options["category"] == "file" or options["category"] == "archive":
+            # options["file_name"]文件名的名字
             data = {
                 "filepath": os.path.join(
                     self.determine_temp_path(), options["file_name"]
@@ -509,7 +529,9 @@ class GuestManager(object):
             }
             self.post("/store", files=files, data=data)
 
+        # 运行analyzer.py,需要的环境就是analyzer.py和analyzer.conf
         if "execpy" in features:
+            # 走这里
             data = {
                 "filepath": "%s/analyzer.py" % self.analyzer_path,
                 "async": "yes",
@@ -529,7 +551,7 @@ class GuestManager(object):
         if self.is_old:
             self.old.wait_for_completion()
             return
-
+        # 虚拟机中运行了analyzer.py才开始计算超时时间
         end = time.time() + self.timeout
         # starting之后的状态就是running，在schduler中设置
         while db.guest_get_status(self.task_id) == "running":
@@ -553,6 +575,7 @@ class GuestManager(object):
                 continue
 
             if status["status"] == "complete":
+                # 这是我们期望的
                 log.info("%s: analysis completed successfully", self.vmid)
                 return
             elif status["status"] == "exception":

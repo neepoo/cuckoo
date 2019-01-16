@@ -382,11 +382,14 @@ class Machinery(object):
         # This block was originally suggested by Loic Jaquemet.
         waitme = 0
         try:
+            # 获取当前虚拟机状态
             current = self._status(label)
         except NameError:
             return
 
         while current not in states:
+            # 等待虚拟机状态成为states中的某一个
+            # 在start中调用就是等待虚拟机从初始状态变为running状态
             log.debug("Waiting %i cuckooseconds for machine %s to switch "
                       "to status %s", waitme, label, states)
             if waitme > config("cuckoo:timeouts:vm_state"):
@@ -461,7 +464,7 @@ class LibVirtMachinery(Machinery):
         conn = self._connect()
         # 虚拟机对象
         vm_info = self.db.view_machine_by_label(label)
-
+        # 查询当前虚拟机所具有的快照
         snapshot_list = self.vms[label].snapshotListNames(flags=0)
 
         # If a snapshot is configured try to use it.
@@ -496,6 +499,7 @@ class LibVirtMachinery(Machinery):
                                      "{0}".format(label))
 
         # Check state.
+        # 等待虚拟机开机
         self._wait_status(label, self.RUNNING)
 
     def stop(self, label):

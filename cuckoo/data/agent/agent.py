@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf-8
 # Copyright (C) 2015-2017 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
@@ -364,13 +365,13 @@ def do_execute():
 
 @app.route("/execpy", methods=["POST"])
 def do_execpy():
-    if "filepath" not in request.form:
+    if "filepath" not in request.form:  # 默认是analyzer.py的绝对路劲
         return json_error(400, "No Python file has been provided")
 
     # Execute the command asynchronously? As a shell command?
     async = "async" in request.form
 
-    cwd = request.form.get("cwd")
+    cwd = request.form.get("cwd")  # 默认是analyzer_path
     stdout = stderr = None
 
     args = [
@@ -380,6 +381,8 @@ def do_execpy():
 
     try:
         if async:
+            # guest中默认逻辑走这里
+            # 调用系统的默认python解释器执行analyzer.py
             subprocess.Popen(args, cwd=cwd)
         else:
             p = subprocess.Popen(args, cwd=cwd,

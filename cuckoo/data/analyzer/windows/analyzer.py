@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (C) 2011-2013 Claudio Guarnieri.
 # Copyright (C) 2014-2018 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
@@ -443,8 +444,8 @@ class Analyzer(object):
 
     def prepare(self):
         """Prepare env for analysis."""
-        # Get SeDebugPrivilege for the Python process. It will be needed in
-        # order to perform the injections.
+        # Get SeDebugPrivilege for the Python process. It will be needed in order to perform the injections.
+        # 方便注入
         grant_privilege("SeDebugPrivilege")
         grant_privilege("SeLoadDriverPrivilege")
 
@@ -485,6 +486,7 @@ class Analyzer(object):
         # Initialize and start the Log Pipe Server - the log pipe server will
         # open up a pipe that monitored processes will use to send logs to
         # before they head off to the host machine.
+        # 宿主机的ip的port
         destination = self.config.ip, self.config.port
         self.log_pipe_server = PipeServer(
             PipeForwarder, self.config.logpipe, destination=destination
@@ -495,6 +497,7 @@ class Analyzer(object):
         # We update the target according to its category. If it's a file, then
         # we store the target path.
         if self.config.category == "file":
+            # 获取样本的路径
             self.target = os.path.join(
                 os.environ["TEMP"], self.config.file_name
             )
@@ -595,6 +598,7 @@ class Analyzer(object):
         # E.g., for some samples it might be useful to run from %APPDATA%
         # instead of %TEMP%.
         if self.config.category == "file":
+            # self.target样本路径，最后还是要移到和analyzer一个目录下
             self.target = self.package.move_curdir(self.target)
 
         # Initialize Auxiliary modules
@@ -606,6 +610,7 @@ class Analyzer(object):
 
             # Import the auxiliary module.
             try:
+                # 只是引入模块，并不初始化里面的类
                 __import__(name, globals(), locals(), ["dummy"], -1)
             except ImportError as e:
                 log.warning("Unable to import the auxiliary module "
@@ -616,6 +621,7 @@ class Analyzer(object):
         for module in Auxiliary.__subclasses__():
             # Try to start the auxiliary module.
             try:
+                # 尝试初始化辅助模块
                 aux = module(options=self.config.options, analyzer=self)
                 aux_avail.append(aux)
                 aux.init()
@@ -634,9 +640,10 @@ class Analyzer(object):
             else:
                 log.debug("Started auxiliary module %s",
                           module.__name__)
-                aux_enabled.append(aux)
+                aux_enabled.append(aux)  # 能开始的辅助模块
 
         # Inform zer0m0n of the ResultServer address.
+        # 用来与宿主机communicate
         zer0m0n.resultserver(self.config.ip, self.config.port)
 
         # Forward the command pipe and logpipe names on to zer0m0n.
@@ -655,6 +662,7 @@ class Analyzer(object):
 
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
+        # 开始执行样本，返回pid
         pids = self.package.start(self.target)
 
         # If the analysis package returned a list of process identifiers, we
